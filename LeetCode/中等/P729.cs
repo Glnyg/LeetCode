@@ -1,4 +1,6 @@
-﻿namespace LeetCode.中等;
+﻿using Newtonsoft.Json;
+
+namespace LeetCode.中等;
 
 public class P729
 {
@@ -49,7 +51,8 @@ public class P729
 
         return data;
 
-        Tuple<int, int, bool>[] GetCaseItem(List<int[]> inputList, List<bool> expectedList) => inputList.Zip(expectedList)
+        Tuple<int, int, bool>[] GetCaseItem(List<int[]> inputList, List<bool> expectedList) => inputList
+            .Zip(expectedList)
             .Select(t => new Tuple<int, int, bool>(t.First[0], t.First[1], t.Second)).ToArray();
     }
 
@@ -61,81 +64,54 @@ public class P729
 
         foreach (var (startTime, endTime, expected) in cases)
         {
-            Assert.Equal(calendar.Book(startTime, endTime), expected);
+            var result = calendar.Book(startTime, endTime);
+            
+            Assert.True(result.Equals(expected), $"{calendar.BookJson()}\n({startTime}, {endTime})\n 期望: {expected}, 实际: {result}");
         }
     }
 
     private class MyCalendar
     {
-        private readonly List<int> _books = new(1000);
-        private readonly Dictionary<int, int> _booksDict = new();
+        public string BookJson() => JsonConvert.SerializeObject(_books);
+        
+        private readonly List<(int, int)> _books = new(1000);
+        private readonly IComparer<(int start, int end)> _startComparer =
+            Comparer<(int start, int end)>.Create((a, b) => a.start.CompareTo(b.start));
 
         public bool Book(int startTime, int endTime)
         {
             if (_books.Count == 0)
             {
-                _books.Add(startTime);
-                _booksDict.Add(startTime, endTime);
+                _books.Add((startTime, endTime));
                 return true;
             }
 
-            var startTimeOfBookIndex = BinarySearchSmallerAndLarger(_books, startTime);
+            var startTimeOfBookIndex = _books.BinarySearch((startTime, endTime), _startComparer);
 
-            if (startTimeOfBookIndex.isEqual) return false;
+            if (startTimeOfBookIndex >= 0) return false;
+            
+            startTimeOfBookIndex = ~startTimeOfBookIndex;
 
             if (!StartTimeValid() || !EndTimeValid()) return false;
 
-            _books.Insert(startTimeOfBookIndex.larger ?? _books.Count, startTime);
-            _booksDict.Add(startTime, endTime);
+            _books.Insert(startTimeOfBookIndex, (startTime, endTime));
             return true;
 
             bool EndTimeValid()
             {
-                if (!startTimeOfBookIndex.larger.HasValue) return true;
+                if (startTimeOfBookIndex >= _books.Count) return true;
 
-                return endTime <= _books[startTimeOfBookIndex.larger.Value];
+                return endTime <= _books[startTimeOfBookIndex].Item1;
             }
 
             bool StartTimeValid()
             {
-                if (!startTimeOfBookIndex.smaller.HasValue) return true;
+                if (startTimeOfBookIndex == 0) return true;
 
-                return startTime >= _booksDict[_books[startTimeOfBookIndex.smaller.Value]];
+                return startTime >= _books[startTimeOfBookIndex - 1].Item2;
             }
         }
 
-        private static (int? smaller, int? larger, bool isEqual) BinarySearchSmallerAndLarger(List<int> sortedList,
-            int target)
-        {
-            var low = 0;
-            var high = sortedList.Count - 1;
-            int? smaller = null;
-            int? larger = null;
-            var isEqual = false;
-
-            while (low <= high)
-            {
-                var mid = (low + high) / 2;
-                var midValue = sortedList[mid];
-
-                if (midValue < target)
-                {
-                    smaller = mid;
-                    low = mid + 1;
-                }
-                else if (midValue > target)
-                {
-                    larger = mid;
-                    high = mid - 1;
-                }
-                else
-                {
-                    isEqual = true;
-                    break;
-                }
-            }
-
-            return (smaller, larger, isEqual);
-        }
+        
     }
 }
